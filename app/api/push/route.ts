@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { ethers } from "ethers";
 import abi from "@/abi/ProvenanceRegistry.json";
 import type { PushEntityBody, PushBatchBody, PushResponse } from "@/lib/contract";
+import { saveEntityByTx } from "@/lib/db";
+import { getProvider, getRegistryContract } from "@/lib/contract";
 
 function isBytes32(val?: string | null): boolean {
   if (!val) return false;
@@ -68,6 +70,29 @@ export async function POST(req: Request) {
       const txHash = tx.hash as string;
       const txUrl = `${explorer}${txHash}`;
 
+      // Persist first entity for this tx (detail page uses first event)
+      try {
+        const firstId = ids[0];
+        if (firstId) {
+          const r = await (contract as any).getEntity(firstId);
+          await saveEntityByTx({
+            tx_hash: txHash,
+            id: r.id as string,
+            entity_type: r.entityType as string,
+            data_json: r.dataJson as string,
+            version: (r.version as bigint)?.toString?.() ?? String(r.version),
+            previous_id: r.previousId as string,
+            timestamp: (r.timestamp as bigint)?.toString?.() ?? String(r.timestamp),
+            submitter: r.submitter as string,
+            tx_url: txUrl,
+            chain_name: chainName || null,
+          });
+        }
+      } catch (e) {
+        // Swallow DB errors to not impact chain success
+        console.warn("DB persist failed for batch:", (e as any)?.message || e);
+      }
+
       return NextResponse.json<PushResponse>({ success: true, txHash, txUrl, receipt, chainName });
     }
 
@@ -91,6 +116,26 @@ export async function POST(req: Request) {
     const receipt = await tx.wait(1);
     const txHash = tx.hash as string;
     const txUrl = `${explorer}${txHash}`;
+
+    // Persist entity for this tx
+    try {
+      const r = await (contract as any).getEntity(idBytes32);
+      await saveEntityByTx({
+        tx_hash: txHash,
+        id: r.id as string,
+        entity_type: r.entityType as string,
+        data_json: r.dataJson as string,
+        version: (r.version as bigint)?.toString?.() ?? String(r.version),
+        previous_id: r.previousId as string,
+        timestamp: (r.timestamp as bigint)?.toString?.() ?? String(r.timestamp),
+        submitter: r.submitter as string,
+        tx_url: txUrl,
+        chain_name: chainName || null,
+      });
+    } catch (e) {
+      // Swallow DB errors to not impact chain success
+      console.warn("DB persist failed:", (e as any)?.message || e);
+    }
 
     return NextResponse.json<PushResponse>({ success: true, txHash, txUrl, receipt, chainName });
   } catch (err: any) {

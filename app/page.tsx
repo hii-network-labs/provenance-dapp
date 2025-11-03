@@ -90,6 +90,23 @@ export default function Page() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  const clearForm = () => {
+    setFields([{ key: "", value: "", id: crypto.randomUUID() }]);
+    setResult(null);
+    setToast({ message: "Form cleared", type: "success" });
+    setTimeout(() => setToast(null), 1000);
+  };
+
+  const registerAnother = () => {
+    setFields((prev) => prev.map((v) => ({ ...v, value: "" })));
+    setResult(null);
+    setToast({ message: "Ready to register another", type: "success" });
+    setTimeout(() => setToast(null), 1200);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <main className="container" style={{ maxWidth: 900 }}>
       <div style={{
@@ -105,6 +122,22 @@ export default function Page() {
       <section style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 16, background: "#fafafa", marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
           <h2 style={{ fontSize: 18, margin: 0 }}>Entity Data</h2>
+          <button
+            type="button"
+            onClick={clearForm}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              color: "#0f172a",
+              fontWeight: 500,
+              cursor: "pointer",
+              boxShadow: "0 1px 2px rgba(16,24,40,0.04)",
+            }}
+          >
+            Clear Form
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -233,6 +266,22 @@ export default function Page() {
                 >
                   View Detail
                 </a>
+                <button
+                  type="button"
+                  onClick={registerAnother}
+                  style={{
+                    display: "inline-block",
+                    padding: "10px 14px",
+                    background: "#f9fafb",
+                    color: "#0f172a",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 10,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Register Another
+                </button>
               </div>
             </div>
           ) : (

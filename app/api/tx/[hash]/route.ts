@@ -2,6 +2,20 @@ import { NextResponse } from "next/server";
 import { ethers } from "ethers";
 import abi from "../../../../abi/ProvenanceRegistry.json";
 import { getProvider, getRegistryContract } from "../../../../lib/contract";
+import { getEntityByTx, saveEntityByTx } from "../../../../lib/db";
+
+// Simple in-memory cache for transaction details.
+// Note: In-memory cache persists for the lifetime of the server process.
+// For serverless environments, consider an external cache (Redis) instead.
+type CacheEntry = { value: any; expiresAt: number };
+const txCache = new Map<string, CacheEntry>();
+const CACHE_TTL_SUCCESS_MS = 5 * 60 * 1000; // 5 minutes for successful fetches
+const CACHE_TTL_ERROR_MS = 15 * 1000; // 15 seconds for errors/not found to avoid hammering
+
+const cacheHeaders: Record<string, string> = {
+  // Allow browser and any CDN to cache briefly; SWR gives a smooth refresh
+  "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=300",
+};
 
 export async function GET(
   _req: Request,
@@ -23,14 +37,44 @@ export async function GET(
     }
 
     const txHash = params.hash;
+
+    // Serve from cache if present and not expired
+    const cached = txCache.get(txHash);
+    if (cached && cached.expiresAt > Date.now()) {
+      return NextResponse.json(cached.value, { headers: cacheHeaders });
+    }
+
+    // Attempt DB lookup first
+    const dbRow = await getEntityByTx(txHash);
+    if (dbRow) {
+      const payload = {
+        success: true,
+        txHash,
+        txUrl: dbRow.tx_url || `${CHAIN_EXPLORER_TX_URL}${txHash}`,
+        chainName: dbRow.chain_name || CHAIN_NAME || "",
+        events: [],
+        entity: dbRow.id
+          ? {
+              id: dbRow.id,
+              entityType: dbRow.entity_type || "",
+              dataJson: dbRow.data_json || "",
+              version: dbRow.version || "",
+              previousId: dbRow.previous_id || "",
+              timestamp: dbRow.timestamp || "",
+              submitter: dbRow.submitter || "",
+            }
+          : null,
+      };
+      txCache.set(txHash, { value: payload, expiresAt: Date.now() + CACHE_TTL_SUCCESS_MS });
+      return NextResponse.json(payload, { headers: cacheHeaders });
+    }
     const provider = getProvider();
     const receipt = await provider.getTransactionReceipt(txHash);
 
     if (!receipt) {
-      return NextResponse.json(
-        { success: false, error: "Transaction not found" },
-        { status: 404 }
-      );
+      const payload = { success: false, error: "Transaction not found" };
+      txCache.set(txHash, { value: payload, expiresAt: Date.now() + CACHE_TTL_ERROR_MS });
+      return NextResponse.json(payload, { status: 404, headers: cacheHeaders });
     }
 
     const iface = new ethers.Interface(abi as any);
@@ -80,7 +124,7 @@ export async function GET(
     }
 
     const txUrl = `${CHAIN_EXPLORER_TX_URL}${txHash}`;
-    return NextResponse.json({
+    const payload = {
       success: true,
       txHash,
       txUrl,
@@ -88,11 +132,32 @@ export async function GET(
       events: matchedLogs,
       entity,
       receipt,
-    });
+    };
+    txCache.set(txHash, { value: payload, expiresAt: Date.now() + CACHE_TTL_SUCCESS_MS });
+    // Persist to DB to warm future reads
+    try {
+      if (entity) {
+        await saveEntityByTx({
+          tx_hash: txHash,
+          id: entity.id,
+          entity_type: entity.entityType,
+          data_json: entity.dataJson,
+          version: entity.version,
+          previous_id: entity.previousId,
+          timestamp: entity.timestamp,
+          submitter: entity.submitter,
+          tx_url: txUrl,
+          chain_name: CHAIN_NAME || null,
+        });
+      }
+    } catch (e) {
+      console.warn("DB persist failed during GET fallback:", (e as any)?.message || e);
+    }
+    return NextResponse.json(payload, { headers: cacheHeaders });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || "Unknown error" },
-      { status: 500 }
-    );
+    const payload = { success: false, error: error?.message || "Unknown error" };
+    // Cache transient errors briefly keyed by txHash to avoid hammering upstream.
+    txCache.set(params.hash, { value: payload, expiresAt: Date.now() + CACHE_TTL_ERROR_MS });
+    return NextResponse.json(payload, { status: 500, headers: cacheHeaders });
   }
 }
