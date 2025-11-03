@@ -1,0 +1,27 @@
+# Node / Next.js
+node_modules/
+.next/
+.vercel/
+out/
+coverage/
+dist/
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Env files
+# Ignore real env files but keep example templates checked in
+.env*
+!.env*.example
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Misc
+*.local
+*.tmp
+*.swp

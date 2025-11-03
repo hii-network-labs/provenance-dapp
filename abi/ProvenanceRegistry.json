@@ -1,0 +1,61 @@
+[
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "id", "type": "bytes32" },
+      { "internalType": "string", "name": "entityType", "type": "string" },
+      { "internalType": "string", "name": "dataJson", "type": "string" },
+      { "internalType": "bytes32", "name": "previousId", "type": "bytes32" }
+    ],
+    "name": "pushEntity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32[]", "name": "ids", "type": "bytes32[]" },
+      { "internalType": "string[]", "name": "types_", "type": "string[]" },
+      { "internalType": "string[]", "name": "dataJsons", "type": "string[]" },
+      { "internalType": "bytes32[]", "name": "previousIds", "type": "bytes32[]" }
+    ],
+    "name": "pushBatchEntities",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "id", "type": "bytes32" },
+      { "indexed": false, "internalType": "string", "name": "entityType", "type": "string" },
+      { "indexed": true, "internalType": "address", "name": "submitter", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "version", "type": "uint256" }
+    ],
+    "name": "EntityPushed",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "id", "type": "bytes32" }
+    ],
+    "name": "getEntity",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "bytes32", "name": "id", "type": "bytes32" },
+          { "internalType": "string", "name": "entityType", "type": "string" },
+          { "internalType": "string", "name": "dataJson", "type": "string" },
+          { "internalType": "uint256", "name": "version", "type": "uint256" },
+          { "internalType": "bytes32", "name": "previousId", "type": "bytes32" },
+          { "internalType": "uint256", "name": "timestamp", "type": "uint256" },
+          { "internalType": "address", "name": "submitter", "type": "address" }
+        ],
+        "internalType": "struct ProvenanceRegistryV1.EntityRecord",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
