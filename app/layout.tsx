@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Provenance Registry DApp',
-  description: 'Submit provenance JSON to on-chain registry',
+  description: 'Store provenance data on-chain for traceability and verification',
 }
 
 export default function RootLayout({
